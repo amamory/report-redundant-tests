@@ -27,17 +27,27 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
     list(APPEND COVERAGE_EXCLUDES 
         "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp"
     )
+    # better looking report. not the one used by the script
     setup_target_for_coverage_gcovr_html(
         NAME coverage_html
-        EXECUTABLE greatest_test
+        EXECUTABLE greatest_test 
         BASE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src"
     )
+    # this is the main report format used by the script
     setup_target_for_coverage_gcovr_txt(
         NAME coverage_txt
-        EXECUTABLE greatest_test
+        EXECUTABLE ;
         BASE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src"
     )
-
+    ## this is the rule to run when one test is excluded
+    # should produce the following line in the makefile
+    # /home/user/repos/dmo1mi/report-redundant-tests/build/greatest_test --gtest_filter='-$(TEST_NAME)'
+    # /home/user/repos/dmo1mi/report-redundant-tests/build/greatest_test "--gtest_filter=-$${TEST_NAME}"
+    # setup_target_for_coverage_gcovr_txt(
+    #     NAME coverage_txt_exclude
+    #     EXECUTABLE ;
+    #     BASE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    # )
 endif()
 
 # Unit Tests

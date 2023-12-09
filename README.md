@@ -128,4 +128,4 @@ Note: Google Test filter = -GreaterTest.AisGreaterRedundant
 
 # Related projects
 
- - https://github.com/bendrissou/gcovr-diff
+ - https://github.com/bendrissou/gcovr-diff: perhaps the main difference is that this repo is more integrated with gtest and it automatically iterate over each test to perform the coverage difference.

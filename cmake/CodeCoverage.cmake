@@ -645,8 +645,8 @@ function(setup_target_for_coverage_gcovr_txt)
     )
     # Running gcovr
     set(GCOVR_TXT_CMD
-        ${GCOVR_PATH} --txt ${Coverage_NAME}/coverage.txt -r ${BASEDIR} ${GCOVR_ADDITIONAL_ARGS}
-        ${GCOVR_EXCLUDE_ARGS} --object-directory=${PROJECT_BINARY_DIR}
+        ${GCOVR_PATH} --txt ${Coverage_NAME}/coverage.txt --r ${BASEDIR} ${GCOVR_ADDITIONAL_ARGS}
+        ${GCOVR_EXCLUDE_ARGS} -d --object-directory=${PROJECT_BINARY_DIR}
     )
 
     if(CODE_COVERAGE_VERBOSE)
