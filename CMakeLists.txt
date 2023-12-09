@@ -23,15 +23,21 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
     include(CodeCoverage)
     #set ( CODE_COVERAGE_VERBOSE TRUE )
     append_coverage_compiler_flags()
+    # only needed to remove subfolders/files under the BASE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src"
     list(APPEND COVERAGE_EXCLUDES 
-        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/*"
-        "${CMAKE_CURRENT_SOURCE_DIR}/test/*"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp"
     )
     setup_target_for_coverage_gcovr_html(
         NAME coverage_html
-        EXECUTABLE ctest -j3
+        EXECUTABLE greatest_test
         BASE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src"
     )
+    setup_target_for_coverage_gcovr_txt(
+        NAME coverage_txt
+        EXECUTABLE greatest_test
+        BASE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    )
+
 endif()
 
 # Unit Tests

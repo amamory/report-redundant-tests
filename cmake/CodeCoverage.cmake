@@ -168,11 +168,6 @@ set(COVERAGE_COMPILER_FLAGS "-g --coverage"
     CACHE INTERNAL "")
 if(CMAKE_CXX_COMPILER_ID MATCHES "(GNU|Clang)")
     include(CheckCXXCompilerFlag)
-    # to generate .gcda file 
-    check_cxx_compiler_flag(-fprofile-generate HAVE_fprofile_generate)
-    if(HAVE_fprofile_generate)
-        set(COVERAGE_COMPILER_FLAGS "${COVERAGE_COMPILER_FLAGS} -fprofile-generate")
-    endif()
     check_cxx_compiler_flag(-fprofile-abs-path HAVE_fprofile_abs_path)
     if(HAVE_fprofile_abs_path)
         set(COVERAGE_COMPILER_FLAGS "${COVERAGE_COMPILER_FLAGS} -fprofile-abs-path")
@@ -587,6 +582,108 @@ function(setup_target_for_coverage_gcovr_html)
     )
 
 endfunction() # setup_target_for_coverage_gcovr_html
+
+# Defines a target for running and collection code coverage information
+# Builds dependencies, runs the given executable and outputs reports.
+# NOTE! The executable should always have a ZERO as exit code otherwise
+# the coverage generation will not complete.
+#
+# setup_target_for_coverage_gcovr_txt(
+#     NAME ctest_coverage                    # New target name
+#     EXECUTABLE ctest -j ${PROCESSOR_COUNT} # Executable in PROJECT_BINARY_DIR
+#     DEPENDENCIES executable_target         # Dependencies to build first
+#     BASE_DIRECTORY "../"                   # Base directory for report
+#                                            #  (defaults to PROJECT_SOURCE_DIR)
+#     EXCLUDE "src/dir1/*" "src/dir2/*"      # Patterns to exclude (can be relative
+#                                            #  to BASE_DIRECTORY, with CMake 3.4+)
+# )
+# The user can set the variable GCOVR_ADDITIONAL_ARGS to supply additional flags to the
+# GCVOR command.
+function(setup_target_for_coverage_gcovr_txt)
+
+    set(options NONE)
+    set(oneValueArgs BASE_DIRECTORY NAME)
+    set(multiValueArgs EXCLUDE EXECUTABLE EXECUTABLE_ARGS DEPENDENCIES)
+    cmake_parse_arguments(Coverage "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+    if(NOT GCOVR_PATH)
+        message(FATAL_ERROR "gcovr not found! Aborting...")
+    endif() # NOT GCOVR_PATH
+
+    # Set base directory (as absolute path), or default to PROJECT_SOURCE_DIR
+    if(DEFINED Coverage_BASE_DIRECTORY)
+        get_filename_component(BASEDIR ${Coverage_BASE_DIRECTORY} ABSOLUTE)
+    else()
+        set(BASEDIR ${PROJECT_SOURCE_DIR})
+    endif()
+
+    # Collect excludes (CMake 3.4+: Also compute absolute paths)
+    set(GCOVR_EXCLUDES "")
+    foreach(EXCLUDE ${Coverage_EXCLUDE} ${COVERAGE_EXCLUDES} ${COVERAGE_GCOVR_EXCLUDES})
+        if(CMAKE_VERSION VERSION_GREATER 3.4)
+            get_filename_component(EXCLUDE ${EXCLUDE} ABSOLUTE BASE_DIR ${BASEDIR})
+        endif()
+        list(APPEND GCOVR_EXCLUDES "${EXCLUDE}")
+    endforeach()
+    list(REMOVE_DUPLICATES GCOVR_EXCLUDES)
+
+    # Combine excludes to several -e arguments
+    set(GCOVR_EXCLUDE_ARGS "")
+    foreach(EXCLUDE ${GCOVR_EXCLUDES})
+        list(APPEND GCOVR_EXCLUDE_ARGS "-e")
+        list(APPEND GCOVR_EXCLUDE_ARGS "${EXCLUDE}")
+    endforeach()
+
+    # Set up commands which will be run to generate coverage data
+    # Run tests
+    set(GCOVR_TXT_EXEC_TESTS_CMD
+        ${Coverage_EXECUTABLE} ${Coverage_EXECUTABLE_ARGS}
+    )
+    # Create folder
+    set(GCOVR_TXT_FOLDER_CMD
+        ${CMAKE_COMMAND} -E make_directory ${PROJECT_BINARY_DIR}/${Coverage_NAME}
+    )
+    # Running gcovr
+    set(GCOVR_TXT_CMD
+        ${GCOVR_PATH} --txt ${Coverage_NAME}/coverage.txt -r ${BASEDIR} ${GCOVR_ADDITIONAL_ARGS}
+        ${GCOVR_EXCLUDE_ARGS} --object-directory=${PROJECT_BINARY_DIR}
+    )
+
+    if(CODE_COVERAGE_VERBOSE)
+        message(STATUS "Executed command report")
+
+        message(STATUS "Command to run tests: ")
+        string(REPLACE ";" " " GCOVR_TXT_EXEC_TESTS_CMD_SPACED "${GCOVR_TXT_EXEC_TESTS_CMD}")
+        message(STATUS "${GCOVR_TXT_EXEC_TESTS_CMD_SPACED}")
+
+        message(STATUS "Command to create a folder: ")
+        string(REPLACE ";" " " GCOVR_TXT_FOLDER_CMD_SPACED "${GCOVR_TXT_FOLDER_CMD}")
+        message(STATUS "${GCOVR_TXT_FOLDER_CMD_SPACED}")
+
+        message(STATUS "Command to generate gcovr TXT coverage data: ")
+        string(REPLACE ";" " " GCOVR_TXT_CMD_SPACED "${GCOVR_TXT_CMD}")
+        message(STATUS "${GCOVR_TXT_CMD_SPACED}")
+    endif()
+
+    add_custom_target(${Coverage_NAME}
+        COMMAND ${GCOVR_TXT_EXEC_TESTS_CMD}
+        COMMAND ${GCOVR_TXT_FOLDER_CMD}
+        COMMAND ${GCOVR_TXT_CMD}
+
+        BYPRODUCTS ${PROJECT_BINARY_DIR}/${Coverage_NAME}/coverage.txt  # report directory
+        WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+        DEPENDS ${Coverage_DEPENDENCIES}
+        VERBATIM # Protect arguments to commands
+        COMMENT "Running gcovr to produce TXT code coverage report."
+    )
+
+    # Show info where to find the report
+    add_custom_command(TARGET ${Coverage_NAME} POST_BUILD
+        COMMAND ;
+        COMMENT "Open ./${Coverage_NAME}/coverage.txt to view the coverage report."
+    )
+
+endfunction() # setup_target_for_coverage_gcovr_txt
 
 # Defines a target for running and collection code coverage information
 # Builds dependencies, runs the given executable and outputs reports.
