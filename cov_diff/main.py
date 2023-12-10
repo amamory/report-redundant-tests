@@ -10,6 +10,71 @@ import sys
 import argparse
 import shutil
 
+# holds the missing lines for each source code
+class SourceCode:
+    fname = ""
+    missing_lines = set()
+
+    def __init__(self, line):
+        self.parse_missed_lines(line)
+
+    # based on https://github.com/bendrissou/gcovr-diff 'get_file_missed_lines' function
+    def parse_missed_lines(self, line):
+        line_data = line.split()
+        self.fname = line_data[0]
+        self.missing_lines = set()
+
+        # In case there are no missed lines reported
+        if len(line_data) < 5: 
+            return
+        
+        missed_lines = line_data[-1]
+        missed_lines = missed_lines.split(',')
+        
+        # break intervals into lists: 1-3 -> 1,2,3
+        for i in range(0, len(missed_lines)):
+            try:
+                self.missing_lines.add(int(missed_lines[i]))
+            except ValueError as ve:
+                r = missed_lines[i].split('-')
+                r = [int(j) for j in r]
+                k=r[0]
+                while (k<=r[1]):
+                    self.missing_lines.add(k)
+                    k+=1
+
+    def __str__(self):
+        return f"{self.fname}: {self.missing_lines}"
+
+class Test:
+    # list of type SourceCode
+    list_source_files = []
+    # when empty, means the entire test set
+    test_name = ""
+    # '-' means a negated filter
+    test_filter = ""
+
+    def __init__(self, fname, tname="", tfilter=""):
+        self.test_name = tname
+        self.test_filter = tfilter
+        self.list_source_files = []
+        with open(fname) as f:
+            lines = f.read().splitlines()
+        # remove the 6 initial lines and the 3 last lines.
+        # we just want the list of source codes
+        lines = lines[6:-3]
+        #print (lines)
+        for l in lines:
+            code = SourceCode(l)
+            #print (code)
+            self.list_source_files.append(code)
+    
+    def __str__(self):
+        line = self.test_name+self.test_filter+'\n'
+        for l in self.list_source_files:
+            line += " -"+str(l)+'\n'
+        return line
+
 #1) returns a list of tests of the gtest executable
 # Example:
 # $> ./greatest_test --gtest_list_tests | awk '/\./{ SUITE=$1 }  /  / { print SUITE $1 }'
@@ -99,8 +164,8 @@ def main():
 
     #1) generate list of tests
     test_list = generate_gtest_list(test_exec)
-    print (test_list)
-    print (type(test_list))
+    if not args.quiet:
+        print (test_list)
 
     if not args.skip_tests:
         #2) run the full test to get it's missed lines
@@ -115,15 +180,43 @@ def main():
         for test in test_list:
             for fmode in filter_modes:
                 run_gcovr(test_exec, test, fmode, args)
+        
+
+    #4) parse the gcovr txt reports of the complete test set
+    complete_report_fname = os.path.join(args.report_dir, test_exec+".txt")
+    if not os.path.isfile(complete_report_fname):
+        print ("ERROR: Test report", complete_report_fname, "not found")
         sys.exit(1)
+    base_fname = os.path.basename(complete_report_fname)
+    test_name = base_fname[:base_fname.rfind('.')]
+    complete_test_missed_lines = Test(complete_report_fname, test_name)
+    print(complete_test_missed_lines)
 
-    #4) parse the gcovr txt reports to gather the missed lines for every test
+    #5) parse the gcovr txt reports to gather the missed lines for every test
+    report_folder = os.path.join(args.report_dir, "*.txt")
+    report_fnames = glob.glob(report_folder)
+    report_fnames.remove(complete_report_fname)
+    report_fnames.sort()
 
-    #5) do the difference between the 'full test' and each test in the test list
+    list_missed_lines_tests = []
+    for report_fname in report_fnames:
+        # extract the test name and filter mode form the filename
+        base_fname = os.path.basename(report_fname)
+        test_name = base_fname[:base_fname.rfind('.')]
+        test_filter = ""
+        if test_name[-1] == '-':
+            test_filter = "-"
+            test_name = test_name[:-1]
+        missed_lines = Test(report_fname, test_name, test_filter)
+        print(missed_lines)
+        list_missed_lines_tests.append(missed_lines)
+    sys.exit(1)
 
-    #6) sort the result by the test w least number of missed lines, i.e., the tests that least contribute to the full code coverage
+    #6) do the difference between the 'full test' and each test in the test list
 
-    #7) produce the report
+    #7) sort the result by the test w least number of missed lines, i.e., the tests that least contribute to the full code coverage
+
+    #8) produce the report
 
 
 if __name__ == '__main__': 
