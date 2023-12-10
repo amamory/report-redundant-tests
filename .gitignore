@@ -36,3 +36,6 @@ build/*
 
 # python
 env/*
+
+# script execution
+cov_reports/*
