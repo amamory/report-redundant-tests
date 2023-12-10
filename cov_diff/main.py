@@ -164,8 +164,7 @@ def main():
 
     #1) generate list of tests
     test_list = generate_gtest_list(test_exec)
-    if not args.quiet:
-        print (test_list)
+    print ("Found", len(test_list), "tests:", test_list)
 
     if not args.skip_tests:
         #2) run the full test to get it's missed lines
@@ -208,13 +207,38 @@ def main():
             test_filter = "-"
             test_name = test_name[:-1]
         missed_lines = Test(report_fname, test_name, test_filter)
-        print(missed_lines)
+        if not args.quiet:
+            print(missed_lines)
         list_missed_lines_tests.append(missed_lines)
-    sys.exit(1)
 
     #6) do the difference between the 'full test' and each test in the test list
+    redundant_test_data = []
+    for test in list_missed_lines_tests:
+        if test.test_filter == "-":
+            for source in range(len(test.list_source_files)):
+                diff_set = test.list_source_files[source].missing_lines - complete_test_missed_lines.list_source_files[source].missing_lines
+                # list of tuple to be sorted in the next step
+                redundant_test_data.append((test.test_name, test.list_source_files[source].fname,  diff_set))
 
     #7) sort the result by the test w least number of missed lines, i.e., the tests that least contribute to the full code coverage
+    print ("#######################################")
+    print ("TEST CONTRIBUTION REPORT")
+    print ("#######################################")
+    print ("0 missing lines means that, by removing the test, the overall code coverage will remain the same")
+    for test_name in test_list:
+        # get only the data related to `test`
+        test_data = [x for x in redundant_test_data if x[0] == test_name]
+        #sorted_report = sorted(test_data, key=lambda x: len(x[1]))
+        # total_missed_lines = 0
+        # for source in test_data:
+        #     print(source)
+        #     total_missed_lines += len(source[2])
+        total_missed_lines = sum([len(x[2]) for x in test_data])
+        print ("Test", test_name, "has", total_missed_lines, "missed lines")
+        for test in test_data:
+            none, source_name, diff_set = test
+            print (" -", source_name, "has", len(diff_set), "covered lines:", diff_set)
+    sys.exit(1)
 
     #8) produce the report
 
