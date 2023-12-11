@@ -141,6 +141,7 @@ def main():
     parser = argparse.ArgumentParser(description='Shows the number of lines each test is contributing, compared to the entire test set.')
     parser.add_argument('--test-app', type=str, required=True, help='GTest executable')
     parser.add_argument('--exec-dir', type=str, required=True, help='Directory where the tests must be launched')
+    parser.add_argument('--test-list-file', type=str, help='A file with the subset of test names to be checked (optional)')
     parser.add_argument('--report-dir', type=str, default="../cov_reports", help='Directory where the coverage reports are saved')
     parser.add_argument('--skip-tests', action='store_true', help='Skip the test execution, assuming the reports were already generated (optional).')
     parser.add_argument('--find-subset-tests', action='store_true', help='Additional check to find tests that are a subset of other tests (optional).')
@@ -163,9 +164,29 @@ def main():
 
 
     #1) generate list of tests
-    test_list = generate_gtest_list(test_exec)
+    if not args.test_list_file:
+        # use the entire test set, extracted from gtest
+        test_list = generate_gtest_list(test_exec)
+    else:
+        if not os.path.isfile(args.test_list_file):
+            print ("ERROR: Test list", args.test_list_file, "not found")
+            sys.exit(1)
+        with open(args.test_list_file) as f:
+            test_list = f.read().splitlines()
     print ("Found", len(test_list), "tests:", test_list)
+    n = len(test_list)
+    # the 1st n represents the execution of the complete test set, which is done once
+    # the (n * n-1) represents: for each test, run the entire test set excluding its own test
+    # the 2nd n represents: an execution of a test set that includes only its own test
+    # Assuming, as a simplification, that all tests have the same execution time and that the 
+    # script execution time is negligible compared to the test execution time, 
+    # THEN, 'exec_tests' roughly represents the overall execution time of this script
+    exec_tests = n + (n * n-1)
+    if args.find_subset_tests:
+        exec_tests += n
+    print ("The estimated number of tests executions is: ", exec_tests)
 
+    # in case the coverage reports were generated previously
     if not args.skip_tests:
         #2) run the full test to get it's missed lines
         # save the report in gcovr txt format w the name <test_executable>.txt
@@ -214,25 +235,24 @@ def main():
     #6) do the difference between the 'full test' and each test in the test list
     redundant_test_data = []
     for test in list_missed_lines_tests:
+        # skipping the subset test coverage reports (args.find_subset_tests). those are checked in another step
         if test.test_filter == "-":
             for source in range(len(test.list_source_files)):
                 diff_set = test.list_source_files[source].missing_lines - complete_test_missed_lines.list_source_files[source].missing_lines
                 # list of tuple to be sorted in the next step
+                # TODO: could be a map w 2 keys ... think about pros and cons !?!?!
                 redundant_test_data.append((test.test_name, test.list_source_files[source].fname,  diff_set))
 
-    #7) sort the result by the test w least number of missed lines, i.e., the tests that least contribute to the full code coverage
+    #7) sort the result by the test w least number of missed lines, i.e., the tests that contribute less to the full code coverage
+    # and print the report
     print ("#######################################")
     print ("TEST CONTRIBUTION REPORT")
     print ("#######################################")
     print ("0 missing lines means that, by removing the test, the overall code coverage will remain the same")
     for test_name in test_list:
-        # get only the data related to `test`
+        # get only the data related to `test_name`
         test_data = [x for x in redundant_test_data if x[0] == test_name]
-        #sorted_report = sorted(test_data, key=lambda x: len(x[1]))
-        # total_missed_lines = 0
-        # for source in test_data:
-        #     print(source)
-        #     total_missed_lines += len(source[2])
+        #sum the missing lines in all source codes of `test_name`
         total_missed_lines = sum([len(x[2]) for x in test_data])
         print ("Test", test_name, "has", total_missed_lines, "missed lines")
         for test in test_data:
@@ -240,7 +260,7 @@ def main():
             print (" -", source_name, "has", len(diff_set), "covered lines:", diff_set)
     sys.exit(1)
 
-    #8) produce the report
+    #8) detect the tests that are a subset of other tests and print the report
 
 
 if __name__ == '__main__': 

@@ -11,9 +11,10 @@ find_package(GTest REQUIRED CONFIG)
 
 # The unit under test
 add_library(greatest_lib ./src/greatest.cpp)
+add_library(cond_lib ./src/cond_cov.cpp)
 add_executable(greatest ./src/main.cpp)
 target_include_directories(greatest PUBLIC ./src/)
-target_link_libraries(greatest greatest_lib)
+target_link_libraries(greatest greatest_lib cond_lib)
 
 # Enabling code coverage
 if (CMAKE_BUILD_TYPE MATCHES Debug)
@@ -56,5 +57,10 @@ add_executable(greatest_test ./test/main_test.cpp)
 target_include_directories(greatest_test PUBLIC ./src/)
 target_link_libraries(greatest_test pthread gtest gtest_main greatest_lib)
 
+add_executable(cond_test ./test/cond_test.cpp)
+target_include_directories(cond_test PUBLIC ./src/)
+target_link_libraries(cond_test pthread gtest gtest_main cond_lib)
+
 include(GoogleTest)
 gtest_discover_tests(greatest_test)
+gtest_discover_tests(cond_test)

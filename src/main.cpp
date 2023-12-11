@@ -1,5 +1,6 @@
 #include <iostream>
 #include "greatest.cpp"
+#include "cond_cov.cpp"
 
 using namespace std;
 
@@ -14,5 +15,6 @@ int main(int argc, char** argv)
     const int c = stoi(argv[3]);
 
     cout << "The greatest of " << a << ", " << b << ", " << c << " is " << Greatest(a,b,c) << "\n";
+    cout << "Conditional coverage check is " << Condition_Cov(a==1,b==2,c==3) << "\n";
     return 0;
 }
