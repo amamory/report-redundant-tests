@@ -210,6 +210,14 @@ if(CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_Fortran_COMPILER_ID STREQUAL "GNU
     link_libraries(gcov)
 endif()
 
+# for deleting coverage data after report generation
+add_custom_target(rm_coverage_data
+    COMMAND find . -type f -name "*.gcda" -delete
+    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+    VERBATIM # Protect arguments to commands
+    COMMENT "Removing coverage data (*.gcda)."
+)
+
 # Defines a target for running and collection code coverage information
 # Builds dependencies, runs the given executable and outputs reports.
 # NOTE! The executable should always have a ZERO as exit code otherwise

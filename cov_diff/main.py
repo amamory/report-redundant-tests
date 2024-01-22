@@ -108,6 +108,7 @@ def run_gcovr(test_exec, test_name, test_filter_mode, args):
         cmd = test_exec + " --gtest_filter='"+ test_filter_mode + test_name + "'"
     else:
         cmd = test_exec
+    cmd +=   " --gtest_break_on_failure"
     result = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
     if not args.quiet:
         print( result.decode("utf-8",'ignore') )
